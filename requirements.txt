@@ -1,0 +1,9 @@
+matplotlib 
+mediapipe 
+datasets 
+transformers 
+accelerate 
+pycocotools 
+scikit-image 
+ipywidgets
+loguru
