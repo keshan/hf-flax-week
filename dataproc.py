@@ -15,6 +15,7 @@ import torch
 
 from PIL import Image, ImageDraw
 
+import pickle
 import json
 import os
 
@@ -140,7 +141,11 @@ def create_dataset(image_folder, annotations, coco, processor, captioning_model,
         keypoint_masks.append(mask_path)
             
         if i % 300 == 0:
-            captions.append(generation_captions(raw_imgs, processor, captioning_model, device))
+            try:
+                captions[0].extend(generation_captions(raw_imgs, processor, captioning_model, device))
+            except:
+                captions.append(generation_captions(raw_imgs, processor, captioning_model, device))
+            #print(captions)
             raw_imgs = []
             
     if len(raw_imgs) > 0:
@@ -152,6 +157,9 @@ def create_dataset(image_folder, annotations, coco, processor, captioning_model,
 
     # Add dataset to dictionary and return
     # dataset_dict["train"] = dataset
+    with open("captions.pkl", "wb") as fp:
+        pickle.dump(captions, fp)
+        
     return images, segmentation_masks, keypoint_masks, captions[0]
 
 def gen_examples():
@@ -163,9 +171,9 @@ def gen_examples():
             "caption": captions[i],
         }
         
-def push_dataset(image_paths, segmentation_paths, keypoint_paths, captions):
+def push_dataset():
     final_dataset = Dataset.from_generator(
-    gen_examples,
+    gen_examples, 
     features=Features(
             original_image=ImageFeature(),
             segment_image=ImageFeature(),
@@ -176,6 +184,7 @@ def push_dataset(image_paths, segmentation_paths, keypoint_paths, captions):
     )
 
     ds_name = "amateur_drawings-controlnet-dataset"
+    final_dataset.save_to_disk("dataset.hf")
     final_dataset.push_to_hub(ds_name)
     
 def main():
@@ -192,7 +201,15 @@ def main():
     captioning_model = captioning_model.to(device)
     
     coco=COCO('amateur_drawings_annotations.json')
-    push_dataset(create_dataset("/mnt/disks/persist/data/", annotations, coco, processor, captioning_model, device))
+    
+    global image_paths
+    global segmentation_paths
+    global keypoint_paths
+    global captions
+    
+    image_paths, segmentation_paths, keypoint_paths, captions = create_dataset("/mnt/disks/persist/data/", annotations, coco, processor, captioning_model, device)
+    
+    push_dataset()
 
 if __name__ == "__main__":
     main()
